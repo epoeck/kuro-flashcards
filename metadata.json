@@ -1,0 +1,5 @@
+{
+  "name": "Multimedia Flashcards",
+  "description": "A simple, local-first flashcard application that supports text, images, and audio. Create and study your own multimedia flashcards without needing an internet connection.",
+  "requestFramePermissions": []
+}
