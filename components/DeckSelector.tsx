@@ -1,8 +1,10 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useDecksContext } from '../context/DecksContext';
 import type { Deck } from '../types';
 import { StudyIcon, EditIcon, TrashIcon, DeckIcon } from './ui';
 import ConfirmationModal from './ConfirmationModal';
+import ImportDeckModal from './ImportDeckModal';
 
 interface DeckSelectorProps {
     onSelectDeck: (deckId: string, view: 'manager' | 'study') => void;
@@ -81,9 +83,10 @@ const DeckItem: React.FC<{
 
 
 const DeckSelector: React.FC<DeckSelectorProps> = ({ onSelectDeck }) => {
-    const { decks, addDeck, deleteDeck } = useDecksContext();
+    const { decks, addDeck, deleteDeck, importNewDeck } = useDecksContext();
     const [newDeckName, setNewDeckName] = useState('');
     const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const handleCreateDeck = (e: React.FormEvent) => {
         e.preventDefault();
@@ -116,6 +119,11 @@ const DeckSelector: React.FC<DeckSelectorProps> = ({ onSelectDeck }) => {
                         Create Deck
                     </button>
                 </form>
+                 <div className="mt-4 text-center">
+                  <button onClick={() => setIsImportModalOpen(true)} className="text-kuromi-purple hover:text-kuromi-pink font-bold py-2 px-4 rounded transition-colors">
+                    ... or Import Deck From File
+                  </button>
+                </div>
             </div>
 
             <h2 className="text-3xl font-extrabold mb-6">My Decks ({decks.length})</h2>
@@ -124,7 +132,7 @@ const DeckSelector: React.FC<DeckSelectorProps> = ({ onSelectDeck }) => {
                 <div className="text-center py-16 border-2 border-dashed border-kuromi-purple/50 rounded-xl">
                     <DeckIcon className="w-16 h-16 mx-auto text-kuromi-purple mb-4"/>
                     <h3 className="text-xl font-medium text-kuromi-text">You have no decks yet!</h3>
-                    <p className="text-kuromi-muted mt-2">Use the form above to create your first deck.</p>
+                    <p className="text-kuromi-muted mt-2">Use the form above to create your first deck or import one.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -146,6 +154,12 @@ const DeckSelector: React.FC<DeckSelectorProps> = ({ onSelectDeck }) => {
                     title="Delete Deck"
                     message={`Are you sure you want to delete the deck "${deckToDelete.name}"? All cards within it will be lost. This action cannot be undone.`}
                 />
+            )}
+            {isImportModalOpen && (
+              <ImportDeckModal
+                onClose={() => setIsImportModalOpen(false)}
+                onImport={importNewDeck}
+              />
             )}
         </div>
     );

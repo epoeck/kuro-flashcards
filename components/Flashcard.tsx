@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React from 'react';
 import type { Flashcard as FlashcardType, CardContent } from '../types';
 
 const CardSide: React.FC<{ content: CardContent }> = ({ content }) => {
@@ -12,14 +13,12 @@ const CardSide: React.FC<{ content: CardContent }> = ({ content }) => {
 };
 
 
-const Flashcard: React.FC<{ card: FlashcardType }> = ({ card }) => {
-  const [isFlipped, setIsFlipped] = useState(false);
-
+const Flashcard: React.FC<{ card: FlashcardType, isFlipped: boolean, onFlip: () => void }> = ({ card, isFlipped, onFlip }) => {
   return (
     <div
-      className="w-full h-72 sm:h-96 cursor-pointer"
+      className="w-full h-full cursor-pointer"
       style={{ perspective: '1000px' }}
-      onClick={() => setIsFlipped(!isFlipped)}
+      onClick={onFlip}
       role="button"
       aria-label="Flip card"
     >

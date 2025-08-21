@@ -9,6 +9,8 @@ export interface Flashcard {
   id: string;
   front: CardContent;
   back: CardContent;
+  needsStudy?: boolean;
+  correctStreak?: number;
 }
 
 export interface Deck {
