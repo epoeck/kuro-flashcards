@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { CloseIcon } from './ui';
 
@@ -31,18 +30,19 @@ const FileInput: React.FC<FileInputProps> = ({ accept, value, onChange }) => {
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="w-full border-2 border-dashed border-slate-300 rounded-md p-4 text-center text-slate-500 hover:border-indigo-500 hover:text-indigo-500 transition-colors"
+          className="w-full border-2 border-dashed border-kuromi-purple/50 rounded-md p-4 text-center text-kuromi-muted hover:border-kuromi-pink hover:text-kuromi-pink transition-colors"
         >
           Click to select a file
         </button>
       ) : (
-        <div className="relative p-2 border border-slate-300 rounded-md">
+        <div className="relative p-2 border border-kuromi-purple/50 rounded-md bg-kuromi-dark">
             {isImage && <img src={value} alt="Preview" className="max-h-32 w-auto mx-auto rounded"/>}
             {isAudio && <audio controls src={value} className="w-full"></audio>}
             <button
                 type="button"
                 onClick={handleClear}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                aria-label="Clear file"
             >
                 <CloseIcon className="w-4 h-4"/>
             </button>

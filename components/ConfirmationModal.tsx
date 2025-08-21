@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CloseIcon } from './ui';
 
@@ -14,17 +13,17 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ isOpen, onClose, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-40 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="flex justify-between items-center p-4 border-b">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-40 p-4">
+      <div className="bg-kuromi-surface rounded-xl shadow-xl w-full max-w-md border border-kuromi-purple/50">
+        <div className="flex justify-between items-center p-4 border-b border-kuromi-purple/50">
           <h2 className="text-xl font-bold">{title}</h2>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-800"><CloseIcon className="w-6 h-6"/></button>
+          <button onClick={onClose} className="p-2 text-kuromi-muted hover:text-kuromi-text"><CloseIcon className="w-6 h-6"/></button>
         </div>
         <div className="p-6">
-          <p className="text-slate-600">{message}</p>
+          <p className="text-kuromi-muted">{message}</p>
         </div>
-        <div className="flex justify-end p-4 bg-slate-50 border-t rounded-b-lg">
-          <button onClick={onClose} className="px-4 py-2 mr-2 bg-white border border-slate-300 rounded-md hover:bg-slate-100">Cancel</button>
+        <div className="flex justify-end p-4 bg-kuromi-dark/50 border-t border-kuromi-purple/50 rounded-b-lg">
+          <button onClick={onClose} className="px-4 py-2 mr-2 bg-kuromi-surface border border-kuromi-purple/50 rounded-md hover:bg-kuromi-purple/20">Cancel</button>
           <button onClick={onConfirm} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirm</button>
         </div>
       </div>

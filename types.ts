@@ -10,3 +10,9 @@ export interface Flashcard {
   front: CardContent;
   back: CardContent;
 }
+
+export interface Deck {
+    id: string;
+    name: string;
+    cards: Flashcard[];
+}
