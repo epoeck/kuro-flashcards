@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { Flashcard as FlashcardType, CardContent } from '../types';
 
@@ -23,7 +22,7 @@ const Flashcard: React.FC<{ card: FlashcardType, isFlipped: boolean, onFlip: () 
       aria-label="Flip card"
     >
       <div
-        className="relative w-full h-full transition-transform duration-700 rounded-xl shadow-kuromi overflow-hidden"
+        className="relative w-full h-full transition-transform duration-700 rounded-xl shadow-kuromi"
         style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
       >
         <div className="absolute w-full h-full" style={{ backfaceVisibility: 'hidden' }}>
