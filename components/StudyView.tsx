@@ -116,7 +116,7 @@ const StudyView: React.FC<StudyViewProps> = ({ deck }) => {
         </label>
       </div>
 
-      <div className="w-full max-w-2xl min-h-[24rem] sm:min-h-[26rem] mb-4">
+      <div className="w-full max-w-2xl aspect-[4/3] mb-4 mx-auto">
         {currentCard ? (
             <Flashcard card={currentCard} isFlipped={isFlipped} onFlip={() => setIsFlipped(!isFlipped)} key={currentCard.id}/>
         ) : (
