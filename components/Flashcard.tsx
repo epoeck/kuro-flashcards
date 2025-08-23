@@ -16,7 +16,7 @@ const CardSide: React.FC<{ content: CardContent }> = ({ content }) => {
 const Flashcard: React.FC<{ card: FlashcardType, isFlipped: boolean, onFlip: () => void }> = ({ card, isFlipped, onFlip }) => {
   return (
     <div
-      className="w-full h-full cursor-pointer"
+      className="w-full h-full cursor-pointer rounded-xl shadow-kuromi overflow-hidden"
       style={{ perspective: '1000px' }}
       onClick={onFlip}
       role="button"
