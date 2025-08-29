@@ -4,12 +4,13 @@ import { useDecks } from './hooks/useDecks';
 import DeckManager from './components/DeckManager';
 import StudyView from './components/StudyView';
 import DeckSelector from './components/DeckSelector';
-import { BackIcon } from './components/ui';
+import SyncManager from './components/SyncManager'; // Importar o novo componente
+import { BackIcon, CloudIcon } from './components/ui';
 
 type View = 'selector' | 'manager' | 'study';
 
 const App: React.FC = () => {
-  const decksData = useDecks();
+  const decksData = useDecks(); // O nosso hook agora devolve muito mais dados!
   const [view, setView] = useState<View>('selector');
   const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
 
@@ -27,11 +28,25 @@ const App: React.FC = () => {
     setView('selector');
   }
 
+  // Componente para o indicador de estado de sincronização
+  const SyncStatusIndicator: React.FC = () => {
+    if (decksData.error) {
+        return <div className="text-red-400 text-sm font-semibold flex items-center"><CloudIcon className="w-5 h-5 mr-2"/> Error: {decksData.error}</div>;
+    }
+    if (decksData.isSyncing) {
+        return <div className="text-kuromi-purple text-sm font-semibold flex items-center animate-pulse"><CloudIcon className="w-5 h-5 mr-2"/> A Sincronizar...</div>;
+    }
+    if (decksData.syncId) {
+        return <div className="text-green-400 text-sm font-semibold flex items-center"><CloudIcon className="w-5 h-5 mr-2"/> Sincronizado</div>;
+    }
+    return <div className="text-kuromi-muted text-sm font-semibold flex items-center"><CloudIcon className="w-5 h-5 mr-2"/> Offline</div>;
+  };
+
   const renderContent = () => {
     if (decksData.loading) {
       return (
         <div className="flex justify-center items-center h-64">
-          <p className="text-lg text-kuromi-muted">Loading your decks...</p>
+          <p className="text-lg text-kuromi-muted">A carregar os seus decks da nuvem...</p>
         </div>
       );
     }
@@ -40,10 +55,15 @@ const App: React.FC = () => {
       case 'manager':
         return activeDeck ? <DeckManager deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
       case 'study':
-        return activeDeck ? <StudyView deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
+        return active-deck ? <StudyView deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
       case 'selector':
       default:
-        return <DeckSelector onSelectDeck={handleSelectDeck} />;
+        return (
+            <>
+                <SyncManager />
+                <DeckSelector onSelectDeck={handleSelectDeck} />
+            </>
+        );
     }
   };
 
@@ -57,10 +77,13 @@ const App: React.FC = () => {
                  {view !== 'selector' && (
                     <button onClick={handleBackToDecks} className="flex items-center text-kuromi-muted hover:text-kuromi-pink mr-4 transition-colors">
                         <BackIcon className="w-5 h-5 mr-2" />
-                        <span className="hidden sm:inline">Back to Decks</span>
+                        <span className="hidden sm:inline">Voltar aos Decks</span>
                     </button>
                  )}
                 <h1 className="text-2xl font-extrabold text-white tracking-wider">Kuromi Flashcards</h1>
+              </div>
+              <div className="flex items-center">
+                  <SyncStatusIndicator />
               </div>
             </div>
           </nav>
@@ -72,7 +95,7 @@ const App: React.FC = () => {
         
         <footer className="bg-kuromi-surface py-4 mt-8 border-t border-kuromi-purple/50">
             <div className="text-center text-sm text-kuromi-muted">
-                Created with ♡. All your data is saved in your browser.
+                Criado com ♡. Os seus dados são guardados na nuvem.
             </div>
         </footer>
       </div>
