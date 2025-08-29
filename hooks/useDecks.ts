@@ -13,18 +13,17 @@ export const useDecks = () => {
   const [error, setError] = useState<string | null>(null);
 
   const debounceTimeout = useRef<number | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Carregar o syncId do localStorage ao iniciar
   useEffect(() => {
     const savedSyncId = localStorage.getItem(SYNC_ID_STORAGE_KEY);
     if (savedSyncId) {
       setSyncId(savedSyncId);
     } else {
-      setLoading(false); // Não há ID, então não há o que carregar
+      setLoading(false);
     }
   }, []);
   
-  // Efeito para buscar os decks da nuvem quando o syncId for definido
   useEffect(() => {
     if (!syncId) return;
 
@@ -35,10 +34,8 @@ export const useDecks = () => {
         const response = await fetch(`/.netlify/functions/get-decks?syncId=${syncId}`);
         if (!response.ok) {
             if(response.status === 404) {
-                // ID não encontrado, talvez tenha sido apagado. Limpa o ID local.
-                console.warn("Sync ID não encontrado na nuvem. Começando do zero.");
-                localStorage.removeItem(SYNC_ID_STORAGE_KEY);
-                setSyncId(null);
+                // ID não encontrado. Permite que o utilizador crie decks com este novo ID.
+                console.warn("Sync ID não encontrado na nuvem. Será criado ao guardar.");
                 setDecks([]);
             } else {
                 throw new Error("Falha ao buscar decks.");
@@ -48,7 +45,7 @@ export const useDecks = () => {
             setDecks(data.decks || []);
         }
       } catch (e) {
-        setError("Não foi possível carregar seus decks.");
+        setError("Não foi possível carregar os seus decks.");
         console.error(e);
       } finally {
         setLoading(false);
@@ -57,23 +54,26 @@ export const useDecks = () => {
     fetchDecks();
   }, [syncId]);
 
-
-  // Efeito para salvar os decks na nuvem quando eles mudarem
   useEffect(() => {
-    // Não salva se estiver carregando ou se for o estado inicial sem syncId
-    if (loading || isSyncing) return;
+    if (loading || isInitialMount.current) {
+        if (!loading) {
+            isInitialMount.current = false;
+        }
+        return;
+    }
 
-    // Limpa o timeout anterior para "debounce"
     if (debounceTimeout.current) {
       clearTimeout(debounceTimeout.current);
     }
 
     debounceTimeout.current = window.setTimeout(() => {
         const saveDecks = async () => {
+            if (!syncId) return; // Só guarda se houver um ID definido
+
             setIsSyncing(true);
             setError(null);
             try {
-                const endpoint = `/.netlify/functions/save-decks${syncId ? `?syncId=${syncId}` : ''}`;
+                const endpoint = `/.netlify/functions/save-decks?syncId=${syncId}`;
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     body: JSON.stringify({ decks }),
@@ -81,27 +81,18 @@ export const useDecks = () => {
 
                 if (!response.ok) throw new Error("Falha ao sincronizar decks.");
 
-                const result = await response.json();
-                
-                // Se for um novo conjunto de decks, um novo ID será retornado
-                if (result.syncId && !syncId) {
-                    localStorage.setItem(SYNC_ID_STORAGE_KEY, result.syncId);
-                    setSyncId(result.syncId);
-                }
             } catch (e) {
-                setError("Erro ao salvar. Verifique sua conexão.");
+                setError("Erro ao guardar. Verifique a sua conexão.");
                 console.error(e);
             } finally {
                 setIsSyncing(false);
             }
         };
         saveDecks();
-    }, 1500); // Espera 1.5 segundos após a última mudança para salvar
+    }, 1500);
 
-  }, [decks]);
+  }, [decks, syncId]);
 
-
-  // Funções de manipulação de decks (a lógica interna delas não muda)
   const addDeck = useCallback((name: string) => {
     const newDeck: Deck = { id: Date.now().toString(), name, cards: [] };
     setDecks(prev => [...prev, newDeck]);
@@ -155,11 +146,11 @@ export const useDecks = () => {
     setDecks(prev => [...prev, newDeck]);
   }, []);
 
-  // Nova função para permitir ao usuário carregar decks de outro ID
   const loadDecksFromSyncId = (newSyncId: string) => {
-      if (newSyncId && newSyncId.trim() !== syncId) {
-          localStorage.setItem(SYNC_ID_STORAGE_KEY, newSyncId.trim());
-          setSyncId(newSyncId.trim());
+      const trimmedId = newSyncId.trim();
+      if (trimmedId && trimmedId !== syncId) {
+          localStorage.setItem(SYNC_ID_STORAGE_KEY, trimmedId);
+          setSyncId(trimmedId);
       }
   }
 
