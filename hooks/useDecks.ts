@@ -1,135 +1,141 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Flashcard, Deck } from '../types';
-import LZString from 'lz-string';
+
+const SYNC_ID_STORAGE_KEY = 'flashcard-app-sync-id';
 
 const generateCardId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
 export const useDecks = () => {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncId, setSyncId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Efeito para carregar os decks da URL ao iniciar o app
+  const debounceTimeout = useRef<number | null>(null);
+
+  // Carregar o syncId do localStorage ao iniciar
   useEffect(() => {
-    try {
-      const hash = window.location.hash.slice(1);
-      if (hash) {
-        const decompressed = LZString.decompressFromBase64(hash);
-        if (decompressed) {
-            const parsedData = JSON.parse(decompressed);
-            if (parsedData && Array.isArray(parsedData.decks)) {
-                setDecks(parsedData.decks);
-            }
-        }
-      }
-    } catch (error) {
-      console.error("Falha ao carregar decks da URL hash", error);
-      setDecks([]);
-    } finally {
-      setLoading(false);
+    const savedSyncId = localStorage.getItem(SYNC_ID_STORAGE_KEY);
+    if (savedSyncId) {
+      setSyncId(savedSyncId);
+    } else {
+      setLoading(false); // Não há ID, então não há o que carregar
     }
-  }, []); // Executa apenas uma vez
-
-  // Efeito para salvar os decks na URL sempre que eles mudarem
-  useEffect(() => {
-    // Ignora a execução enquanto os dados iniciais ainda estão carregando
-    if (loading) {
-      return;
-    }
-
-    try {
-      const appData = { decks };
-      const jsonString = JSON.stringify(appData);
-      const compressed = LZString.compressToBase64(jsonString);
-      const newHash = '#' + compressed;
-
-      // Condição para limpar a URL se não houver mais decks
-      if (decks.length === 0) {
-          // Limpa a hash se ela não estiver vazia
-          if(window.location.hash) {
-              window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-          return;
-      }
-      
-      // Apenas atualiza a URL se o conteúdo for realmente diferente
-      // Isso evita atualizações desnecessárias e possíveis loops
-      if (window.location.hash !== newHash) {
-        window.history.replaceState(null, '', newHash);
-      }
-    } catch (error) {
-      console.error("Falha ao salvar decks na URL hash", error);
-    }
-  }, [decks, loading]);
-
-  const addDeck = useCallback((name: string) => {
-    const newDeck: Deck = {
-      id: Date.now().toString(),
-      name,
-      cards: [],
-    };
-    setDecks(prevDecks => [...prevDecks, newDeck]);
   }, []);
+  
+  // Efeito para buscar os decks da nuvem quando o syncId for definido
+  useEffect(() => {
+    if (!syncId) return;
 
+    const fetchDecks = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/.netlify/functions/get-decks?syncId=${syncId}`);
+        if (!response.ok) {
+            if(response.status === 404) {
+                // ID não encontrado, talvez tenha sido apagado. Limpa o ID local.
+                console.warn("Sync ID não encontrado na nuvem. Começando do zero.");
+                localStorage.removeItem(SYNC_ID_STORAGE_KEY);
+                setSyncId(null);
+                setDecks([]);
+            } else {
+                throw new Error("Falha ao buscar decks.");
+            }
+        } else {
+            const data = await response.json();
+            setDecks(data.decks || []);
+        }
+      } catch (e) {
+        setError("Não foi possível carregar seus decks.");
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDecks();
+  }, [syncId]);
+
+
+  // Efeito para salvar os decks na nuvem quando eles mudarem
+  useEffect(() => {
+    // Não salva se estiver carregando ou se for o estado inicial sem syncId
+    if (loading || isSyncing) return;
+
+    // Limpa o timeout anterior para "debounce"
+    if (debounceTimeout.current) {
+      clearTimeout(debounceTimeout.current);
+    }
+
+    debounceTimeout.current = window.setTimeout(() => {
+        const saveDecks = async () => {
+            setIsSyncing(true);
+            setError(null);
+            try {
+                const endpoint = `/.netlify/functions/save-decks${syncId ? `?syncId=${syncId}` : ''}`;
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({ decks }),
+                });
+
+                if (!response.ok) throw new Error("Falha ao sincronizar decks.");
+
+                const result = await response.json();
+                
+                // Se for um novo conjunto de decks, um novo ID será retornado
+                if (result.syncId && !syncId) {
+                    localStorage.setItem(SYNC_ID_STORAGE_KEY, result.syncId);
+                    setSyncId(result.syncId);
+                }
+            } catch (e) {
+                setError("Erro ao salvar. Verifique sua conexão.");
+                console.error(e);
+            } finally {
+                setIsSyncing(false);
+            }
+        };
+        saveDecks();
+    }, 1500); // Espera 1.5 segundos após a última mudança para salvar
+
+  }, [decks]);
+
+
+  // Funções de manipulação de decks (a lógica interna delas não muda)
+  const addDeck = useCallback((name: string) => {
+    const newDeck: Deck = { id: Date.now().toString(), name, cards: [] };
+    setDecks(prev => [...prev, newDeck]);
+  }, []);
+  
   const deleteDeck = useCallback((deckId: string) => {
-    setDecks(prevDecks => prevDecks.filter(deck => deck.id !== deckId));
+    setDecks(prev => prev.filter(deck => deck.id !== deckId));
   }, []);
 
   const updateDeckName = useCallback((deckId: string, name: string) => {
-    setDecks(prevDecks =>
-      prevDecks.map(deck => (deck.id === deckId ? { ...deck, name } : deck))
-    );
+    setDecks(prev => prev.map(d => (d.id === deckId ? { ...d, name } : d)));
   }, []);
 
   const addCard = useCallback((deckId: string, card: Omit<Flashcard, 'id' | 'needsStudy' | 'correctStreak'>) => {
-    const newCard: Flashcard = {
-        ...card,
-        id: generateCardId(),
-        needsStudy: false,
-        correctStreak: 0,
-    };
-    setDecks(prevDecks =>
-      prevDecks.map(deck =>
-        deck.id === deckId
-          ? { ...deck, cards: [...deck.cards, newCard] }
-          : deck
-      )
-    );
+    const newCard: Flashcard = { ...card, id: generateCardId(), needsStudy: false, correctStreak: 0 };
+    setDecks(prev => prev.map(d => d.id === deckId ? { ...d, cards: [...d.cards, newCard] } : d));
   }, []);
-
+  
   const updateCard = useCallback((deckId: string, updatedCard: Flashcard) => {
-    setDecks(prevDecks =>
-      prevDecks.map(deck =>
-        deck.id === deckId
-          ? { ...deck, cards: deck.cards.map(card => card.id === updatedCard.id ? updatedCard : card) }
-          : deck
-      )
-    );
+    setDecks(prev => prev.map(d => d.id === deckId ? { ...d, cards: d.cards.map(c => c.id === updatedCard.id ? updatedCard : c) } : d));
   }, []);
 
   const deleteCard = useCallback((deckId: string, cardId: string) => {
-    setDecks(prevDecks =>
-      prevDecks.map(deck =>
-        deck.id === deckId
-          ? { ...deck, cards: deck.cards.filter(card => card.id !== cardId) }
-          : deck
-      )
-    );
+    setDecks(prev => prev.map(d => d.id === deckId ? { ...d, cards: d.cards.filter(c => c.id !== cardId) } : d));
   }, []);
-
-  const updateCardMastery = useCallback((deckId: string, cardId: string, isCorrect: boolean) => {
+  
+   const updateCardMastery = useCallback((deckId: string, cardId: string, isCorrect: boolean) => {
     setDecks(prevDecks => prevDecks.map(deck => {
         if (deck.id !== deckId) return deck;
-
         const newCards = deck.cards.map(card => {
             if (card.id !== cardId) return card;
-
             if (isCorrect) {
                 const newStreak = (card.correctStreak || 0) + 1;
-                let newNeedsStudy = card.needsStudy;
-                if (newStreak >= 5) {
-                    newNeedsStudy = false;
-                }
-                return { ...card, correctStreak: newStreak, needsStudy: newNeedsStudy };
+                return { ...card, correctStreak: newStreak, needsStudy: newStreak >= 5 ? false : card.needsStudy };
             } else {
                 return { ...card, correctStreak: 0, needsStudy: true };
             }
@@ -138,39 +144,40 @@ export const useDecks = () => {
     }));
   }, []);
 
-  const importCardsToDeck = useCallback((deckId: string, cardsToImport: Omit<Flashcard, 'id'>[]) => {
-    const newCards: Flashcard[] = cardsToImport.map(card => ({
-        ...card,
-        id: generateCardId(),
-        needsStudy: card.needsStudy ?? false,
-        correctStreak: card.correctStreak ?? 0,
-    }));
-
-    setDecks(prevDecks =>
-        prevDecks.map(deck =>
-            deck.id === deckId
-                ? { ...deck, cards: [...deck.cards, ...newCards] }
-                : deck
-        )
-    );
+  const importCardsToDeck = useCallback((deckId: string, cards: Omit<Flashcard, 'id'>[]) => {
+    const newCards: Flashcard[] = cards.map(c => ({...c, id: generateCardId(), needsStudy: c.needsStudy ?? false, correctStreak: c.correctStreak ?? 0}));
+    setDecks(prev => prev.map(d => d.id === deckId ? { ...d, cards: [...d.cards, ...newCards] } : d));
   }, []);
 
-  const importNewDeck = useCallback((deckName: string, cardsToImport: Omit<Flashcard, 'id'>[]) => {
-    const newCards: Flashcard[] = cardsToImport.map(card => ({
-        ...card,
-        id: generateCardId(),
-        needsStudy: card.needsStudy ?? false,
-        correctStreak: card.correctStreak ?? 0,
-    }));
-    
-    const newDeck: Deck = {
-      id: Date.now().toString(),
-      name: deckName,
-      cards: newCards,
-    };
-
-    setDecks(prevDecks => [...prevDecks, newDeck]);
+  const importNewDeck = useCallback((deckName: string, cards: Omit<Flashcard, 'id'>[]) => {
+    const newCards: Flashcard[] = cards.map(c => ({...c, id: generateCardId(), needsStudy: c.needsStudy ?? false, correctStreak: c.correctStreak ?? 0}));
+    const newDeck: Deck = { id: Date.now().toString(), name: deckName, cards: newCards };
+    setDecks(prev => [...prev, newDeck]);
   }, []);
 
-  return { decks, loading, addDeck, deleteDeck, updateDeckName, addCard, updateCard, deleteCard, updateCardMastery, importCardsToDeck, importNewDeck };
+  // Nova função para permitir ao usuário carregar decks de outro ID
+  const loadDecksFromSyncId = (newSyncId: string) => {
+      if (newSyncId && newSyncId.trim() !== syncId) {
+          localStorage.setItem(SYNC_ID_STORAGE_KEY, newSyncId.trim());
+          setSyncId(newSyncId.trim());
+      }
+  }
+
+  return { 
+      decks, 
+      loading, 
+      isSyncing,
+      error,
+      syncId,
+      addDeck,
+      deleteDeck,
+      updateDeckName,
+      addCard,
+      updateCard,
+      deleteCard,
+      updateCardMastery,
+      importCardsToDeck,
+      importNewDeck,
+      loadDecksFromSyncId
+  };
 };
