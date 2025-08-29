@@ -55,7 +55,7 @@ const App: React.FC = () => {
       case 'manager':
         return activeDeck ? <DeckManager deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
       case 'study':
-        return active-deck ? <StudyView deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
+        return activeDeck ? <StudyView deck={activeDeck} /> : <DeckSelector onSelectDeck={handleSelectDeck} />;
       case 'selector':
       default:
         return (
