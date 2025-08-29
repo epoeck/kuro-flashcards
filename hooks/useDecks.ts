@@ -1,12 +1,6 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import type { Flashcard, Deck } from '../types';
-
-const DECKS_STORAGE_KEY = 'flashcard-app-data';
-
-interface AppData {
-  decks: Deck[];
-}
+import LZString from 'lz-string';
 
 const generateCardId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
@@ -14,28 +8,56 @@ export const useDecks = () => {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Efeito para carregar os decks da URL ao iniciar o app
   useEffect(() => {
     try {
-      const savedData = localStorage.getItem(DECKS_STORAGE_KEY);
-      if (savedData) {
-        const parsedData: AppData = JSON.parse(savedData);
-        setDecks(parsedData.decks || []);
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        const decompressed = LZString.decompressFromBase64(hash);
+        if (decompressed) {
+            const parsedData = JSON.parse(decompressed);
+            if (parsedData && Array.isArray(parsedData.decks)) {
+                setDecks(parsedData.decks);
+            }
+        }
       }
     } catch (error) {
-      console.error("Failed to load decks from localStorage", error);
+      console.error("Falha ao carregar decks da URL hash", error);
+      setDecks([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // Executa apenas uma vez
 
+  // Efeito para salvar os decks na URL sempre que eles mudarem
   useEffect(() => {
-    if (!loading) {
-      try {
-        const appData: AppData = { decks };
-        localStorage.setItem(DECKS_STORAGE_KEY, JSON.stringify(appData));
-      } catch (error) {
-        console.error("Failed to save decks to localStorage", error);
+    // Ignora a execução enquanto os dados iniciais ainda estão carregando
+    if (loading) {
+      return;
+    }
+
+    try {
+      const appData = { decks };
+      const jsonString = JSON.stringify(appData);
+      const compressed = LZString.compressToBase64(jsonString);
+      const newHash = '#' + compressed;
+
+      // Condição para limpar a URL se não houver mais decks
+      if (decks.length === 0) {
+          // Limpa a hash se ela não estiver vazia
+          if(window.location.hash) {
+              window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+          return;
       }
+      
+      // Apenas atualiza a URL se o conteúdo for realmente diferente
+      // Isso evita atualizações desnecessárias e possíveis loops
+      if (window.location.hash !== newHash) {
+        window.history.replaceState(null, '', newHash);
+      }
+    } catch (error) {
+      console.error("Falha ao salvar decks na URL hash", error);
     }
   }, [decks, loading]);
 
@@ -59,8 +81,8 @@ export const useDecks = () => {
   }, []);
 
   const addCard = useCallback((deckId: string, card: Omit<Flashcard, 'id' | 'needsStudy' | 'correctStreak'>) => {
-    const newCard: Flashcard = { 
-        ...card, 
+    const newCard: Flashcard = {
+        ...card,
         id: generateCardId(),
         needsStudy: false,
         correctStreak: 0,
@@ -115,7 +137,7 @@ export const useDecks = () => {
         return { ...deck, cards: newCards };
     }));
   }, []);
-  
+
   const importCardsToDeck = useCallback((deckId: string, cardsToImport: Omit<Flashcard, 'id'>[]) => {
     const newCards: Flashcard[] = cardsToImport.map(card => ({
         ...card,
